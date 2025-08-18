@@ -46,7 +46,7 @@ export class FlyRepository {
   private _arborist?: Arborist;
   private _repositoryPath!: string;
   private nodeModulesPath!: string;
-  private _require?: NodeRequire;
+  private _require?: NodeJS.Require;
 
   constructor(config: FlyRepositoryConfig) {
     this.repositoryPath = config.repositoryPath;
@@ -80,7 +80,7 @@ export class FlyRepository {
   }
 
   get #require() {
-    this._require ||= createRequire(pathToFileURL(join(this.nodeModulesPath)).href);
+    this._require ??= createRequire(pathToFileURL(join(this.nodeModulesPath)).href);
 
     return this._require;
   }
