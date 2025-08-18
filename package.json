@@ -23,8 +23,8 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc",
+    "lint": "xo",
     "prepare": "npm run build",
-    "pretest": "xo",
     "test": "vitest run --coverage"
   },
   "dependencies": {
