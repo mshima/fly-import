@@ -88,13 +88,13 @@ describe('fly-import', () => {
     describe('flyImport', () => {
       it('should import package', async () => {
         const { default: camelcase } = await flyImport('camelcase3@npm:camelcase@7.0.0');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
         expect(camelcase('foo-bar')).toBe('fooBar');
       });
 
       it('should import package passing options', async () => {
         const { default: camelcase } = await flyImport('camelcase3@npm:camelcase@7.0.0', { repositoryPath: `${testRepositoryPath}/sub` });
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
         expect(camelcase('foo-bar')).toBe('fooBar');
       });
     });
