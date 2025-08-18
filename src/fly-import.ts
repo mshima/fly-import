@@ -99,7 +99,7 @@ export class FlyRepository {
     this._arborist = undefined;
   }
 
-  async load() {
+  async load(): Promise<unknown> {
     return this.#arborist.loadActual();
   }
 
