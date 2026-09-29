@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/mshima/fly-import/compare/v1.1.0...v1.1.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* add repository and package metadata to package.json ([#7](https://github.com/mshima/fly-import/issues/7)) ([13ed012](https://github.com/mshima/fly-import/commit/13ed012639c30304c8118543feac136e9a05d01c))
+
 ## [1.1.0](https://github.com/mshima/fly-import/compare/v1.0.0...v1.1.0) (2026-09-29)
 
 
