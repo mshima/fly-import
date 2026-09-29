@@ -72,7 +72,8 @@ export class FlyRepository {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this._arborist = new Arborist({
         global: true,
-        // With global, bins are linked at `<repositoryPath>/../bin`, a folder outside the repository shared with sibling repositories.
+        // With global, bins are linked at `<repositoryPath>/../bin` (`<repositoryPath>` on Windows).
+        // Outside Windows, that folder is outside the repository and shared with sibling repositories.
         binLinks: false,
         path: this.repositoryPath,
         token: registry ? registryAuthToken(registry) : undefined,

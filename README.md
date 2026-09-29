@@ -24,7 +24,7 @@ import { flyImport } from 'fly-import';
 const { customAlphabet } = await flyImport('nanoid@5', { subpath: 'non-secure' });
 ```
 
-Bins of installed packages are not linked, pass `arboristConfig: { binLinks: true }` to link them at `<repositoryPath>/../bin`.
+Bins of installed packages are not linked, pass `arboristConfig: { binLinks: true }` to link them at `<repositoryPath>/../bin` (`<repositoryPath>` on Windows).
 
 ## License
 

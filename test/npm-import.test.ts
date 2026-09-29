@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import process from 'node:process';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,14 +74,17 @@ describe('fly-import', () => {
         });
       });
 
-      it('should not link bins outside the repository', async () => {
+      // Global bins are linked at the prefix on Windows, and at `<prefix>/../bin` elsewhere.
+      const semverBin = process.platform === 'win32' ? join(testRepositoryPath, 'sub/semver.cmd') : join(testRepositoryPath, 'bin/semver');
+
+      it('should not link bins', async () => {
         await flyInstall('semver@7.6.0', { repositoryPath: `${testRepositoryPath}/sub` });
-        expect(existsSync(join(testRepositoryPath, 'bin/semver'))).toBe(false);
+        expect(existsSync(semverBin)).toBe(false);
       });
 
       it('should link bins when requested', async () => {
         await flyInstall('semver@7.6.0', { repositoryPath: `${testRepositoryPath}/sub`, arboristConfig: { binLinks: true } });
-        expect(existsSync(join(testRepositoryPath, 'bin/semver'))).toBe(true);
+        expect(existsSync(semverBin)).toBe(true);
       });
 
       it('should fail to install not existing package', async () => {
