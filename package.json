@@ -1,6 +1,7 @@
 {
   "name": "fly-import",
   "version": "1.1.0",
+  "description": "Install and import packages on-the-fly",
   "keywords": [
     "npm",
     "npx",
@@ -8,6 +9,16 @@
     "loaders",
     "on-demand"
   ],
+  "homepage": "https://github.com/mshima/fly-import#readme",
+  "bugs": {
+    "url": "https://github.com/mshima/fly-import/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mshima/fly-import.git"
+  },
+  "license": "MIT",
+  "author": "Marcelo Shima <marceloshima@gmail.com>",
   "type": "module",
   "exports": {
     ".": {
