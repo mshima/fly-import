@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,6 +79,16 @@ describe('fly-import', () => {
           path: /camelcase3$/,
           realpath: /camelcase3$/,
         });
+      });
+
+      it('should not link bins outside the repository', async () => {
+        await flyInstall('semver@7.6.0', { repositoryPath: `${testRepositoryPath}/sub` });
+        expect(existsSync(join(testRepositoryPath, 'bin/semver'))).toBe(false);
+      });
+
+      it('should link bins when requested', async () => {
+        await flyInstall('semver@7.6.0', { repositoryPath: `${testRepositoryPath}/sub`, arboristConfig: { binLinks: true } });
+        expect(existsSync(join(testRepositoryPath, 'bin/semver'))).toBe(true);
       });
 
       it('should fail to install not existing package', async () => {

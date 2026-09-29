@@ -16,6 +16,8 @@ const { flyInstall } = await 'fly-import2@npm:fly-import@0.1.2';
 console.log(await flyInstall('camelcase-git@github:sindresorhus/camelcase#v7.0.1'));
 ```
 
+Bins of installed packages are not linked, pass `arboristConfig: { binLinks: true }` to link them at `<repositoryPath>/../bin`.
+
 ## License
 
 MIT
