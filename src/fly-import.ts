@@ -16,6 +16,14 @@ export type FlyRepositoryConfig = {
   arboristConfig?: any;
 };
 
+export type FlyImportOptions = Partial<FlyRepositoryConfig> & {
+  /**
+   * Subpath of the package to import, like `sub/module` of `package/sub/module`.
+   * Resolved through the package's `exports` when it declares them.
+   */
+  subpath?: string;
+};
+
 type IntalledPackage = {
   name: string;
   path: string;
@@ -23,7 +31,7 @@ type IntalledPackage = {
   pkgid: string;
   version: string;
   packageName: string;
-  import: <T = any>() => Promise<T>;
+  import: <T = any>(subpath?: string) => Promise<T>;
 };
 
 type NotIntalledPackage = {
@@ -33,7 +41,7 @@ type NotIntalledPackage = {
   pkgid: string;
   version: undefined;
   packageName: undefined;
-  import: <T = any>() => Promise<T>;
+  import: <T = any>(subpath?: string) => Promise<T>;
 };
 
 export type FlyResultPackage = NotIntalledPackage | IntalledPackage;
@@ -114,13 +122,20 @@ export class FlyRepository {
     return Array.isArray(spec) ? installed : installed[0];
   }
 
-  async import<T = any>(spec: string): Promise<T> {
-    return this.findSpecs([spec])[0].import<T>();
+  async import<T = any>(spec: string, subpath?: string): Promise<T> {
+    return this.findSpecs([spec])[0].import<T>(subpath);
   }
 
-  private async resolve(realpath: string) {
+  private async resolve(realpath: string, subpath?: string) {
     // Node's import.meta.resolve is experimental and not enabled
-    return pathToFileURL(this.#require.resolve(realpath)).href;
+    if (!subpath) {
+      return pathToFileURL(this.#require.resolve(realpath)).href;
+    }
+
+    const packageRequire = createRequire(join(realpath, 'package.json'));
+    const { name, exports } = packageRequire('./package.json') as { name: string; exports?: unknown };
+    // A package with exports can only be resolved by its own name (self-reference), which applies the exports.
+    return pathToFileURL(packageRequire.resolve(exports ? `${name}/${subpath}` : join(realpath, subpath))).href;
   }
 
   private findSpecs(specs: string[]): FlyResultPackage[] {
@@ -149,7 +164,7 @@ export class FlyRepository {
           version: (node as any).version,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           packageName: (node as any).packageName,
-          import: async <T = any>() => import(await this.resolve(realpath)) as Promise<T>,
+          import: async <T = any>(subpath?: string) => import(await this.resolve(realpath, subpath)) as Promise<T>,
         };
       }
 
@@ -196,12 +211,13 @@ export const flyInstall = async (specifier: string, options?: FlyRepositoryConfi
   return repo.install(specifier);
 };
 
-export const flyImport = async <T = any>(specifier: string, options?: FlyRepositoryConfig): Promise<T> => {
+export const flyImport = async <T = any>(specifier: string, options?: FlyImportOptions): Promise<T> => {
+  const { subpath, ...repositoryConfig } = options ?? {};
   let repo = defaultRepository;
-  if (options) {
-    repo = new FlyRepository({ ...defaultConfig, ...options });
+  if (Object.keys(repositoryConfig).length > 0) {
+    repo = new FlyRepository({ ...defaultConfig, ...repositoryConfig });
   }
 
   await repo.install(specifier);
-  return repo.import<T>(specifier);
+  return repo.import<T>(specifier, subpath);
 };

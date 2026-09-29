@@ -108,6 +108,36 @@ describe('fly-import', () => {
 
         expect(camelcase('foo-bar')).toBe('fooBar');
       });
+
+      it('should import a subpath of a package with exports', async () => {
+        const { customAlphabet } = await flyImport('nanoid@5.0.9', { subpath: 'non-secure', repositoryPath: `${testRepositoryPath}/sub` });
+
+        expect(customAlphabet('a', 3)()).toBe('aaa');
+      });
+
+      it('should import a subpath of a package installed with a custom name', async () => {
+        const { customAlphabet } = await flyImport('nanoid5@npm:nanoid@5.0.9', {
+          subpath: 'non-secure',
+          repositoryPath: `${testRepositoryPath}/sub`,
+        });
+
+        expect(customAlphabet('b', 2)()).toBe('bb');
+      });
+
+      it('should import a subpath of a package without exports', async () => {
+        const { default: satisfies } = await flyImport('semver@7.6.0', {
+          subpath: 'functions/satisfies',
+          repositoryPath: `${testRepositoryPath}/sub`,
+        });
+
+        expect(satisfies('1.2.3', '^1.0.0')).toBe(true);
+      });
+
+      it('should import a subpath from the default repository', async () => {
+        const { default: satisfies } = await flyImport('semver@7.6.0', { subpath: 'functions/satisfies' });
+
+        expect(satisfies('1.2.3', '^2.0.0')).toBe(false);
+      });
     });
 
     describe('repository', () => {

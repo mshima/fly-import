@@ -16,6 +16,14 @@ const { flyInstall } = await 'fly-import2@npm:fly-import@0.1.2';
 console.log(await flyInstall('camelcase-git@github:sindresorhus/camelcase#v7.0.1'));
 ```
 
+Import a subpath of a package, resolved through its `exports` when it declares them:
+
+```js
+import { flyImport } from 'fly-import';
+
+const { customAlphabet } = await flyImport('nanoid@5', { subpath: 'non-secure' });
+```
+
 Bins of installed packages are not linked, pass `arboristConfig: { binLinks: true }` to link them at `<repositoryPath>/../bin`.
 
 ## License
