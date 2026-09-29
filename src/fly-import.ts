@@ -1,8 +1,11 @@
+import { existsSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import envPaths from 'env-paths';
 import Arborist from '@npmcli/arborist';
+import npa from 'npm-package-arg';
+import semver from 'semver';
 import registryUrl from 'registry-url';
 import registryAuthToken from 'registry-auth-token';
 
@@ -16,6 +19,14 @@ export type FlyRepositoryConfig = {
   arboristConfig?: any;
 };
 
+export type FlyImportOptions = Partial<FlyRepositoryConfig> & {
+  /**
+   * Subpath of the package to import, like `sub/module` of `package/sub/module`.
+   * Resolved through the package's `exports` when it declares them.
+   */
+  subpath?: string;
+};
+
 type IntalledPackage = {
   name: string;
   path: string;
@@ -23,7 +34,7 @@ type IntalledPackage = {
   pkgid: string;
   version: string;
   packageName: string;
-  import: <T = any>() => Promise<T>;
+  import: <T = any>(subpath?: string) => Promise<T>;
 };
 
 type NotIntalledPackage = {
@@ -33,7 +44,7 @@ type NotIntalledPackage = {
   pkgid: string;
   version: undefined;
   packageName: undefined;
-  import: <T = any>() => Promise<T>;
+  import: <T = any>(subpath?: string) => Promise<T>;
 };
 
 export type FlyResultPackage = NotIntalledPackage | IntalledPackage;
@@ -61,6 +72,9 @@ export class FlyRepository {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this._arborist = new Arborist({
         global: true,
+        // With global, bins are linked at `<repositoryPath>/../bin` (`<repositoryPath>` on Windows).
+        // Outside Windows, that folder is outside the repository and shared with sibling repositories.
+        binLinks: false,
         path: this.repositoryPath,
         token: registry ? registryAuthToken(registry) : undefined,
         registry,
@@ -107,18 +121,52 @@ export class FlyRepository {
   async install(spec: string[]): Promise<FlyResultPackage[]>;
   async install(spec: string | string[]): Promise<FlyResultPackage[] | FlyResultPackage> {
     const specs = Array.isArray(spec) ? spec : [spec];
-    await this.#arborist.reify({ add: specs });
+    if (!(await this.isInstalled(specs))) {
+      await this.#arborist.reify({ add: specs });
+    }
+
     const installed = this.findSpecs(specs);
     return Array.isArray(spec) ? installed : installed[0];
   }
 
-  async import<T = any>(spec: string): Promise<T> {
-    return this.findSpecs([spec])[0].import<T>();
+  async import<T = any>(spec: string, subpath?: string): Promise<T> {
+    return this.findSpecs([spec])[0].import<T>(subpath);
   }
 
-  private async resolve(realpath: string) {
+  private async resolve(realpath: string, subpath?: string) {
     // Node's import.meta.resolve is experimental and not enabled
-    return pathToFileURL(this.#require.resolve(realpath)).href;
+    if (!subpath) {
+      return pathToFileURL(this.#require.resolve(realpath)).href;
+    }
+
+    const packageRequire = createRequire(join(realpath, 'package.json'));
+    const { name, exports } = packageRequire('./package.json') as { name: string; exports?: unknown };
+    // A package with exports can only be resolved by its own name (self-reference), which applies the exports.
+    return pathToFileURL(packageRequire.resolve(exports ? `${name}/${subpath}` : join(realpath, subpath))).href;
+  }
+
+  /**
+   * Whether every spec is a version or range already satisfied by the installed packages.
+   * Reifying resolves specs against the registry, which is slow, even when nothing changes.
+   * Tags, unversioned and non registry specs are always reified, since only the registry can tell if they changed.
+   */
+  private async isInstalled(specs: string[]): Promise<boolean> {
+    if (!existsSync(this.nodeModulesPath)) {
+      return false;
+    }
+
+    await this.load();
+
+    return specs.every(spec => {
+      const parsed = npa(spec);
+      const target = parsed.type === 'alias' ? (parsed as npa.AliasResult).subSpec : parsed;
+      if (!['version', 'range'].includes(target.type) || !target.rawSpec || target.rawSpec === '*') {
+        return false;
+      }
+
+      const node = this.#tree.children.get(parsed.name!) as { packageName: string; version: string } | undefined;
+      return node?.packageName === target.name && semver.satisfies(node.version, target.fetchSpec!);
+    });
   }
 
   private findSpecs(specs: string[]): FlyResultPackage[] {
@@ -134,7 +182,7 @@ export class FlyRepository {
     }
 
     return specs.map(spec => {
-      const child = edgesOut.get(spec)!;
+      const child = edgesOut.get(spec) ?? npa(spec).name ?? spec;
       const node = this.#tree.children.get(child) as Arborist.Node;
       if (node) {
         const { realpath } = node;
@@ -147,7 +195,7 @@ export class FlyRepository {
           version: (node as any).version,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           packageName: (node as any).packageName,
-          import: async <T = any>() => import(await this.resolve(realpath)) as Promise<T>,
+          import: async <T = any>(subpath?: string) => import(await this.resolve(realpath, subpath)) as Promise<T>,
         };
       }
 
@@ -194,12 +242,13 @@ export const flyInstall = async (specifier: string, options?: FlyRepositoryConfi
   return repo.install(specifier);
 };
 
-export const flyImport = async <T = any>(specifier: string, options?: FlyRepositoryConfig): Promise<T> => {
+export const flyImport = async <T = any>(specifier: string, options?: FlyImportOptions): Promise<T> => {
+  const { subpath, ...repositoryConfig } = options ?? {};
   let repo = defaultRepository;
-  if (options) {
-    repo = new FlyRepository({ ...defaultConfig, ...options });
+  if (Object.keys(repositoryConfig).length > 0) {
+    repo = new FlyRepository({ ...defaultConfig, ...repositoryConfig });
   }
 
   await repo.install(specifier);
-  return repo.import<T>(specifier);
+  return repo.import<T>(specifier, subpath);
 };
