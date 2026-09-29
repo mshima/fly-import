@@ -1,8 +1,11 @@
+import { existsSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import envPaths from 'env-paths';
 import Arborist from '@npmcli/arborist';
+import npa from 'npm-package-arg';
+import semver from 'semver';
 import registryUrl from 'registry-url';
 import registryAuthToken from 'registry-auth-token';
 
@@ -117,7 +120,10 @@ export class FlyRepository {
   async install(spec: string[]): Promise<FlyResultPackage[]>;
   async install(spec: string | string[]): Promise<FlyResultPackage[] | FlyResultPackage> {
     const specs = Array.isArray(spec) ? spec : [spec];
-    await this.#arborist.reify({ add: specs });
+    if (!(await this.isInstalled(specs))) {
+      await this.#arborist.reify({ add: specs });
+    }
+
     const installed = this.findSpecs(specs);
     return Array.isArray(spec) ? installed : installed[0];
   }
@@ -138,6 +144,30 @@ export class FlyRepository {
     return pathToFileURL(packageRequire.resolve(exports ? `${name}/${subpath}` : join(realpath, subpath))).href;
   }
 
+  /**
+   * Whether every spec is a version or range already satisfied by the installed packages.
+   * Reifying resolves specs against the registry, which is slow, even when nothing changes.
+   * Tags, unversioned and non registry specs are always reified, since only the registry can tell if they changed.
+   */
+  private async isInstalled(specs: string[]): Promise<boolean> {
+    if (!existsSync(this.nodeModulesPath)) {
+      return false;
+    }
+
+    await this.load();
+
+    return specs.every(spec => {
+      const parsed = npa(spec);
+      const target = parsed.type === 'alias' ? (parsed as npa.AliasResult).subSpec : parsed;
+      if (!['version', 'range'].includes(target.type) || !target.rawSpec || target.rawSpec === '*') {
+        return false;
+      }
+
+      const node = this.#tree.children.get(parsed.name!) as { packageName: string; version: string } | undefined;
+      return node?.packageName === target.name && semver.satisfies(node.version, target.fetchSpec!);
+    });
+  }
+
   private findSpecs(specs: string[]): FlyResultPackage[] {
     const edgesOut = new Map<string, string>();
     for (const edgeOut of this.#tree.edgesOut) {
@@ -151,7 +181,7 @@ export class FlyRepository {
     }
 
     return specs.map(spec => {
-      const child = edgesOut.get(spec)!;
+      const child = edgesOut.get(spec) ?? npa(spec).name ?? spec;
       const node = this.#tree.children.get(child) as Arborist.Node;
       if (node) {
         const { realpath } = node;

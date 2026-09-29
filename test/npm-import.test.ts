@@ -3,15 +3,7 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  defineConfig,
-  getConfig,
-  resetConfig,
-  flyInstall,
-  flyImport,
-  getDefaultRepository,
-  type FlyRepository,
-} from '../src/fly-import.js';
+import { defineConfig, getConfig, resetConfig, flyInstall, flyImport, getDefaultRepository, FlyRepository } from '../src/fly-import.js';
 
 const testRepositoryPath = join(fileURLToPath(import.meta.url), '../repository');
 
@@ -169,6 +161,34 @@ describe('fly-import', () => {
           ]);
         });
       });
+      describe('install already installed', () => {
+        const offlineRepository = () =>
+          new FlyRepository({ repositoryPath: `${testRepositoryPath}/sub`, arboristConfig: { registry: 'http://127.0.0.1:9/' } });
+
+        beforeEach(async () => {
+          await flyInstall('camelcase@7.0.0', { repositoryPath: `${testRepositoryPath}/sub` });
+          await flyInstall('camelcase3@npm:camelcase@7.0.0', { repositoryPath: `${testRepositoryPath}/sub` });
+        });
+
+        it('should not reach the registry when versions are satisfied', async () => {
+          const repository = offlineRepository();
+          const installed = await repository.install(['camelcase@^7.0.0', 'camelcase3@npm:camelcase@7.0.0']);
+          expect(installed).toMatchObject([
+            { name: 'camelcase', version: '7.0.0' },
+            { name: 'camelcase3', packageName: 'camelcase', version: '7.0.0' },
+          ]);
+          const { default: camelcase } = await repository.import<{ default: (input: string) => string }>('camelcase3@npm:camelcase@7.0.0');
+          expect(camelcase('foo-bar')).toBe('fooBar');
+        });
+
+        it.each(['camelcase', 'camelcase@latest', 'camelcase@^8.0.0', 'camelcase3@npm:semver@7.0.0'])(
+          'should reach the registry for %s',
+          async (spec: string) => {
+            await expect(offlineRepository().install(spec)).rejects.toThrow();
+          },
+        );
+      });
+
       describe('import', () => {
         it('importing on a non initialized repository should throw', async () => {
           await expect(repository.import('non-existing')).rejects.toThrowError('Repository has not been initialized');
