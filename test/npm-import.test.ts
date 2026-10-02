@@ -56,8 +56,8 @@ describe('fly-import', () => {
         const installed = await flyInstall('camelcase');
         expect(installed).toMatchObject({
           packageName: 'camelcase',
-          path: /camelcase$/,
-          realpath: /camelcase$/,
+          path: /camelcase$/v,
+          realpath: /camelcase$/v,
         });
       });
 
@@ -68,8 +68,8 @@ describe('fly-import', () => {
           packageName: 'camelcase',
           version: '7.0.0',
           pkgid: 'camelcase3@npm:camelcase@7.0.0',
-          path: /camelcase3$/,
-          realpath: /camelcase3$/,
+          path: /camelcase3$/v,
+          realpath: /camelcase3$/v,
         });
       });
 
@@ -80,13 +80,13 @@ describe('fly-import', () => {
           packageName: 'camelcase',
           version: '7.0.0',
           pkgid: 'camelcase3@npm:camelcase@7.0.0',
-          path: /camelcase3$/,
-          realpath: /camelcase3$/,
+          path: /camelcase3$/v,
+          realpath: /camelcase3$/v,
         });
       });
 
       // Global bins are linked at the prefix on Windows, and at `<prefix>/../bin` elsewhere.
-      const semverBin = process.platform === 'win32' ? join(testRepositoryPath, 'sub/semver.cmd') : join(testRepositoryPath, 'bin/semver');
+      const semverBin = join(testRepositoryPath, process.platform === 'win32' ? 'sub/semver.cmd' : 'bin/semver');
 
       it('should not link bins', async () => {
         await flyInstall('semver@7.6.0', { repositoryPath: `${testRepositoryPath}/sub` });
@@ -99,7 +99,7 @@ describe('fly-import', () => {
       });
 
       it('should fail to install not existing package', async () => {
-        await expect(flyInstall('camelcase3@npm:camelcase@20.0.0')).rejects.toThrowError(/No matching version found for/);
+        await expect(flyInstall('camelcase3@npm:camelcase@20.0.0')).rejects.toThrow(/No matching version found for/v);
       });
     });
 
@@ -162,16 +162,16 @@ describe('fly-import', () => {
               packageName: 'camelcase',
               version: '7.0.0',
               pkgid: 'camelcase@7.0.0',
-              path: /camelcase$/,
-              realpath: /camelcase$/,
+              path: /camelcase$/v,
+              realpath: /camelcase$/v,
             },
             {
               name: 'camelcase3',
               packageName: 'camelcase',
               version: '7.0.0',
               pkgid: 'camelcase3@npm:camelcase@7.0.0',
-              path: /camelcase3$/,
-              realpath: /camelcase3$/,
+              path: /camelcase3$/v,
+              realpath: /camelcase3$/v,
             },
           ]);
         });
@@ -186,13 +186,13 @@ describe('fly-import', () => {
         });
 
         it('should not reach the registry when versions are satisfied', async () => {
-          const repository = offlineRepository();
-          const installed = await repository.install(['camelcase@^7.0.0', 'camelcase3@npm:camelcase@7.0.0']);
+          const offline = offlineRepository();
+          const installed = await offline.install(['camelcase@^7.0.0', 'camelcase3@npm:camelcase@7.0.0']);
           expect(installed).toMatchObject([
             { name: 'camelcase', version: '7.0.0' },
             { name: 'camelcase3', packageName: 'camelcase', version: '7.0.0' },
           ]);
-          const { default: camelcase } = await repository.import<{ default: (input: string) => string }>('camelcase3@npm:camelcase@7.0.0');
+          const { default: camelcase } = await offline.import<{ default: (input: string) => string }>('camelcase3@npm:camelcase@7.0.0');
           expect(camelcase('foo-bar')).toBe('fooBar');
         });
 
@@ -206,19 +206,19 @@ describe('fly-import', () => {
 
       describe('import', () => {
         it('importing on a non initialized repository should throw', async () => {
-          await expect(repository.import('non-existing')).rejects.toThrowError('Repository has not been initialized');
+          await expect(repository.import('non-existing')).rejects.toThrow('Repository has not been initialized');
         });
         it('importing a non existing module should fail', async () => {
           await repository.load();
-          await expect(repository.import('non-existing')).rejects.toThrowError('Could not find installed spec non-existing');
+          await expect(repository.import('non-existing')).rejects.toThrow('Could not find installed spec non-existing');
         });
         it('importing a spec without a package name should fail', async () => {
           await repository.load();
-          await expect(repository.import('github:user/repo')).rejects.toThrowError('Could not find installed spec github:user/repo');
+          await expect(repository.import('github:user/repo')).rejects.toThrow('Could not find installed spec github:user/repo');
         });
         it('a repository without a registry should not take a token', async () => {
           const withoutRegistry = new FlyRepository({ repositoryPath: testRepositoryPath, arboristConfig: { registry: '' } });
-          await expect(withoutRegistry.import('non-existing')).rejects.toThrowError('Repository has not been initialized');
+          await expect(withoutRegistry.import('non-existing')).rejects.toThrow('Repository has not been initialized');
         });
       });
     });
