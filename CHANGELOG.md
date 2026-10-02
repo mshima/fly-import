@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/mshima/fly-import/compare/v1.2.0...v2.0.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* Node.js 20 and Node.js 22 before 22.22.2 are no longer supported.
+
+### Features
+
+* require Node.js 22.22.2, 24.15.0 or 26, with @npmcli/arborist 10 and npm-package-arg 14 ([#23](https://github.com/mshima/fly-import/issues/23)) ([00b1abf](https://github.com/mshima/fly-import/commit/00b1abf6985a9e4b5f72f14bd0687d13f2b25ce6))
+
 ## [1.2.0](https://github.com/mshima/fly-import/compare/v1.1.1...v1.2.0) (2026-10-02)
 
 
