@@ -25,6 +25,17 @@ describe('fly-import', () => {
       expect(getConfig().arboristConfig).toBeUndefined();
       expect(defaultRepositoryPath).toBe(defaultRepositoryPath);
     });
+
+    it('should keep the repository path when only the arborist config is defined', () => {
+      const defaultRepositoryPath = getConfig().repositoryPath;
+
+      defineConfig({ arboristConfig: { registry: 'bar' } });
+
+      expect(getConfig().repositoryPath).toBe(defaultRepositoryPath);
+      expect(getConfig().arboristConfig).toMatchObject({ registry: 'bar' });
+
+      resetConfig();
+    });
   });
 
   describe('implementation', () => {
@@ -200,6 +211,14 @@ describe('fly-import', () => {
         it('importing a non existing module should fail', async () => {
           await repository.load();
           await expect(repository.import('non-existing')).rejects.toThrowError('Could not find installed spec non-existing');
+        });
+        it('importing a spec without a package name should fail', async () => {
+          await repository.load();
+          await expect(repository.import('github:user/repo')).rejects.toThrowError('Could not find installed spec github:user/repo');
+        });
+        it('a repository without a registry should not take a token', async () => {
+          const withoutRegistry = new FlyRepository({ repositoryPath: testRepositoryPath, arboristConfig: { registry: '' } });
+          await expect(withoutRegistry.import('non-existing')).rejects.toThrowError('Repository has not been initialized');
         });
       });
     });
