@@ -34,7 +34,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc",
-    "lint": "xo",
+    "lint": "xo && prettier --check .",
     "prepare": "npm run build",
     "test": "vitest run --coverage"
   },
@@ -59,7 +59,7 @@
     "rimraf": "^6.0.1",
     "typescript": "^5.9.2",
     "vitest": "^5.0.3",
-    "xo": "^1.2.2"
+    "xo": "^5.0.1"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
