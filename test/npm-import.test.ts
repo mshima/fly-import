@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs';
+import { type Server, createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import process from 'node:process';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -202,6 +204,55 @@ describe('fly-import', () => {
             await expect(offlineRepository().install(spec)).rejects.toThrow();
           },
         );
+      });
+
+      describe('install with a signal', () => {
+        let server: Server;
+        let registry: string;
+        let requested: () => void;
+
+        beforeEach(async () => {
+          // The first request never answers and tells the test, the others are not found.
+          let requests = 0;
+          server = createServer((request, response) => {
+            if (requests++ === 0) {
+              requested();
+              return;
+            }
+
+            response.writeHead(404).end();
+          });
+          await new Promise<void>(resolve => {
+            server.listen(0, '127.0.0.1', resolve);
+          });
+          registry = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+        });
+        afterEach(async () => {
+          server.closeAllConnections();
+          await new Promise(resolve => {
+            server.close(resolve);
+          });
+        });
+
+        it('should not install with an aborted signal', async () => {
+          const repositoryPath = `${testRepositoryPath}/sub`;
+          await expect(flyInstall('camelcase@7.0.0', { repositoryPath, signal: AbortSignal.abort() })).rejects.toThrow(/aborted/v);
+          expect(existsSync(join(repositoryPath, 'node_modules/camelcase'))).toBe(false);
+        });
+
+        it('should abort the requests of an install, and install again after', async () => {
+          const withRegistry = new FlyRepository({ repositoryPath: `${testRepositoryPath}/sub`, arboristConfig: { registry } });
+          const controller = new AbortController();
+          requested = () => {
+            controller.abort();
+          };
+
+          await expect(withRegistry.install('camelcase@7.0.0', { signal: controller.signal })).rejects.toThrow(
+            expect.objectContaining({ name: 'AbortError' }),
+          );
+          // The arborist of the aborted install is not reused: the registry answers this time.
+          await expect(withRegistry.install('camelcase@7.0.0')).rejects.toThrow(/404/v);
+        });
       });
 
       describe('import', () => {

@@ -24,6 +24,14 @@ import { flyImport } from 'fly-import';
 const { customAlphabet } = await flyImport('nanoid@5', { subpath: 'non-secure' });
 ```
 
+Abort an install with a signal, which cancels its registry requests:
+
+```js
+import { flyImport } from 'fly-import';
+
+const { default: camelcase } = await flyImport('camelcase@8', { signal: AbortSignal.timeout(60_000) });
+```
+
 Bins of installed packages are not linked, pass `arboristConfig: { binLinks: true }` to link them at `<repositoryPath>/../bin` (`<repositoryPath>` on Windows).
 
 ## License
