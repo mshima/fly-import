@@ -18,13 +18,21 @@ export type FlyRepositoryConfig = {
   arboristConfig?: any;
 };
 
-export type FlyImportOptions = Partial<FlyRepositoryConfig> & {
+export type FlyInstallOptions = {
   /**
-  Subpath of the package to import, like `sub/module` of `package/sub/module`.
-  Resolved through the package's `exports` when it declares them.
+  Aborts the install: the registry requests in flight are cancelled and the install rejects.
   */
-  subpath?: string;
+  signal?: AbortSignal;
 };
+
+export type FlyImportOptions = Partial<FlyRepositoryConfig> &
+  FlyInstallOptions & {
+    /**
+    Subpath of the package to import, like `sub/module` of `package/sub/module`.
+    Resolved through the package's `exports` when it declares them.
+    */
+    subpath?: string;
+  };
 
 type IntalledPackage = {
   name: string;
@@ -177,6 +185,32 @@ export class FlyRepository {
   }
 
   /**
+  Arborist takes no signal, but it gives the options of its constructor to pacote and npm-registry-fetch, which pass
+  `signal` to fetch: the signal is set on the options of the arborist for the reify only.
+  Options given to reify itself do not reach them.
+  */
+  private async reify(specs: string[], signal?: AbortSignal) {
+    const arborist = this.#arborist;
+    const options = arborist.options as Arborist.NormalizedOptions & { signal?: AbortSignal };
+    if (signal) {
+      options.signal = signal;
+    }
+
+    try {
+      await arborist.reify({ add: specs });
+    } catch (error) {
+      // A failed reify leaves its trackers behind ("Tracker "reify" already exists"): the next install needs a new arborist.
+      this._arborist = undefined;
+      throw error;
+    } finally {
+      delete options.signal;
+    }
+
+    // A signal aborted after the last request does not stop the reify: it is aborted all the same.
+    signal?.throwIfAborted();
+  }
+
+  /**
   Repository absolute path (npm --prefix).
   */
   get repositoryPath(): string {
@@ -187,12 +221,14 @@ export class FlyRepository {
     return this.#arborist.loadActual();
   }
 
-  async install(spec: string): Promise<FlyResultPackage>;
-  async install(spec: string[]): Promise<FlyResultPackage[]>;
-  async install(spec: string | string[]): Promise<FlyResultPackage[] | FlyResultPackage> {
+  async install(spec: string, options?: FlyInstallOptions): Promise<FlyResultPackage>;
+  async install(spec: string[], options?: FlyInstallOptions): Promise<FlyResultPackage[]>;
+  async install(spec: string | string[], { signal }: FlyInstallOptions = {}): Promise<FlyResultPackage[] | FlyResultPackage> {
     const specs = Array.isArray(spec) ? spec : [spec];
+    signal?.throwIfAborted();
     if (!(await this.isInstalled(specs))) {
-      await this.#arborist.reify({ add: specs });
+      signal?.throwIfAborted();
+      await this.reify(specs, signal);
     }
 
     const installed = this.findSpecs(specs);
@@ -228,15 +264,16 @@ export const getConfig = (): FlyRepositoryConfig => ({ ...defaultConfig });
 
 export const getDefaultRepository = () => defaultRepository;
 
-export const flyInstall = async (specifier: string, options?: FlyRepositoryConfig) => {
-  const repo = options ? new FlyRepository({ ...defaultConfig, ...options }) : defaultRepository;
-  return repo.install(specifier);
+export const flyInstall = async (specifier: string, options?: Partial<FlyRepositoryConfig> & FlyInstallOptions) => {
+  const { signal, ...repositoryConfig } = options ?? {};
+  const repo = Object.keys(repositoryConfig).length > 0 ? new FlyRepository({ ...defaultConfig, ...repositoryConfig }) : defaultRepository;
+  return repo.install(specifier, { signal });
 };
 
 export const flyImport = async <T = any>(specifier: string, options?: FlyImportOptions): Promise<T> => {
-  const { subpath, ...repositoryConfig } = options ?? {};
+  const { subpath, signal, ...repositoryConfig } = options ?? {};
   const repo = Object.keys(repositoryConfig).length > 0 ? new FlyRepository({ ...defaultConfig, ...repositoryConfig }) : defaultRepository;
 
-  await repo.install(specifier);
+  await repo.install(specifier, { signal });
   return repo.import<T>(specifier, subpath);
 };
