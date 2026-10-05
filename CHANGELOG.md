@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/mshima/fly-import/compare/v2.0.0...v2.1.0) (2026-10-05)
+
+
+### Features
+
+* abort an install with a signal ([#31](https://github.com/mshima/fly-import/issues/31)) ([6198309](https://github.com/mshima/fly-import/commit/6198309ca0050c72ee3cb7dadb33226ec3ba6916))
+
 ## [2.0.0](https://github.com/mshima/fly-import/compare/v1.2.0...v2.0.0) (2026-10-02)
 
 
