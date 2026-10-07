@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -11,6 +12,22 @@ import { defineConfig, getConfig, resetConfig, flyInstall, flyImport, getDefault
 const testRepositoryPath = join(fileURLToPath(import.meta.url), '../repository');
 
 describe('fly-import', () => {
+  it('imports arborist at the first install only, not with its module', () => {
+    // The build, as a package using it imports it: arborist is a commonjs module, in the require cache once imported.
+    const script = `
+      const { createRequire } = await import('node:module');
+      const { getConfig } = await import('../dist/index.js');
+      getConfig();
+      const loaded = Object.keys(createRequire(import.meta.url).cache).some(path => path.includes('@npmcli/arborist'));
+      console.log(loaded);
+    `;
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: fileURLToPath(new URL('.', import.meta.url)),
+      encoding: 'utf8',
+    });
+    expect(stdout.trim()).toBe('false');
+  });
+
   describe('defineConfig', () => {
     it('should set defaultConfig and reset', () => {
       expect(getConfig().arboristConfig).toBeUndefined();

@@ -3,7 +3,7 @@ import path, { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import envPaths from 'env-paths';
-import Arborist from '@npmcli/arborist';
+import type Arborist from '@npmcli/arborist';
 import npa from 'npm-package-arg';
 import semver from 'semver';
 import registryUrl from 'registry-url';
@@ -72,8 +72,14 @@ export class FlyRepository {
     this.arboristConfig = config.arboristConfig;
   }
 
-  get #arborist() {
+  /**
+  The arborist of the repository, its module imported at the first use: importing it (with pacote, sigstore and cacache)
+  costs every process importing fly-import, which installs nothing most of the time.
+  */
+  async #getArborist() {
     if (!this._arborist) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { default: Arborist } = await import('@npmcli/arborist');
       const registry = (this.arboristConfig as { registry?: string } | undefined)?.registry ?? registryUrl();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this._arborist = new Arborist({
@@ -92,11 +98,12 @@ export class FlyRepository {
   }
 
   get #tree() {
-    if (!this.#arborist.actualTree) {
+    const tree = this._arborist?.actualTree;
+    if (!tree) {
       throw new Error('Repository has not been initialized');
     }
 
-    return this.#arborist.actualTree;
+    return tree;
   }
 
   get #require() {
@@ -190,7 +197,7 @@ export class FlyRepository {
   Options given to reify itself do not reach them.
   */
   private async reify(specs: string[], signal?: AbortSignal) {
-    const arborist = this.#arborist;
+    const arborist = await this.#getArborist();
     const options = arborist.options as Arborist.NormalizedOptions & { signal?: AbortSignal };
     if (signal) {
       options.signal = signal;
@@ -218,7 +225,8 @@ export class FlyRepository {
   }
 
   async load(): Promise<unknown> {
-    return this.#arborist.loadActual();
+    const arborist = await this.#getArborist();
+    return arborist.loadActual();
   }
 
   async install(spec: string, options?: FlyInstallOptions): Promise<FlyResultPackage>;
