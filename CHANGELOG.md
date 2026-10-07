@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/mshima/fly-import/compare/v2.1.0...v2.1.1) (2026-10-07)
+
+
+### Performance Improvements
+
+* import arborist at the first use of a repository ([#33](https://github.com/mshima/fly-import/issues/33)) ([fbde723](https://github.com/mshima/fly-import/commit/fbde723e09229a5054aa027b0b0da91561b1a8bf))
+
 ## [2.1.0](https://github.com/mshima/fly-import/compare/v2.0.0...v2.1.0) (2026-10-05)
 
 

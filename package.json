@@ -1,6 +1,6 @@
 {
   "name": "fly-import",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Install and import packages on-the-fly",
   "keywords": [
     "npm",
